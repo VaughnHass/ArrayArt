@@ -5,7 +5,7 @@ import Konva from "konva";
 import { Stage, Layer, Rect, Text } from "react-konva";
 
 //change size here, dimensions are X^2
-const SIZE_SQUARED = 9; 
+const SIZE_SQUARED = 5; 
 
 const INITIAL_STATE_RECT = generateRectangles(SIZE_SQUARED);
 const INITIAL_STATE_TEXT = generateText();
@@ -16,7 +16,7 @@ let colorMod = 'normal';
 function generateRectangles(sizeSquared){
   const size = sizeSquared * sizeSquared;
   
-  return [...Array(size)].map((_, i) => ({  
+  const data = [...Array(size)].map((_, i) => ({  
     id: i.toString(),
     x: ((window.innerWidth/2 - (i%sizeSquared) * 55) + (sizeSquared * 25 / 1.35)),
     y: (window.innerHeight/2 - ((Math.floor(i/sizeSquared)) * 55) + (sizeSquared * 25 / 1.2)),
@@ -26,12 +26,22 @@ function generateRectangles(sizeSquared){
     shadowBlur: 5,
     counter: 0,
   }));
+  
+  const rectObjArr = data.map((rect) => {
+    return new Konva.Rect(rect);
+  });
+  
+  return rectObjArr;
 }
 
+//TODO
+//1) for all options besides first & last:
+//  x: window.innerWidth/(options.length - 1)
+//  then figure out X offset value calculation
 function generateText(){
   return [{  
     id: 'vertLine',
-    x: (window.innerWidth/12.5),
+    x: (20),
     y: 15,
     offsetX: 0,
     fontFamily: 'Courier New (monospace)',
@@ -45,9 +55,9 @@ function generateText(){
     selected: false,
   },{  
     id: 'horizonLine',
-    x: (window.innerWidth/2.5),
+    x: (window.innerWidth*0.5),
     y: 15,
-    offsetX: 0,
+    offsetX: 100,
     fontFamily: 'Courier New (monospace)',
     text: 'Horizontal Line',
     textDecoration: '',
@@ -59,9 +69,9 @@ function generateText(){
     selected: false,
   },{  
     id: 'spiral',
-    x: (window.innerWidth/1.3),
+    x: (window.innerWidth),
     y: 15,
-    offsetX: 0,
+    offsetX: 100,
     fontFamily: 'Courier New (monospace)',
     text: 'Spiral',
     textDecoration: '',
@@ -74,9 +84,30 @@ function generateText(){
   }];
 }
 
+/*new plan:
+  1) actually initalize all of the react-konva shapes/nodes here & assign them to an array.
+    (instead of initalizing them in the render method)
+  2) in the handleClick method, directly access each instances setState to change color
+*/
 const App = () => {
   const [rectangles, setRectangles] = React.useState(INITIAL_STATE_RECT);
   const [textOptions, setTextOptions] = React.useState(INITIAL_STATE_TEXT);
+  
+  const rectRef = React.useRef([]);
+  
+  const onRectClick = (e) => {
+    rectRef.current[e.target.index].fill(Konva.Util.getRandomColor());
+    console.log(rectRef.current[e.target.index]);
+  };
+  
+  
+  //TODO: figure out bug switching between vert & single rect click
+  const layer = new Konva.Layer();
+  layer.brightness(-1);
+  rectangles.map(rectangle => {
+    layer.add(rectangle);
+  });
+  console.log(layer);
   
   function delay(ms) {
     return new Promise((resolve) => {
@@ -84,40 +115,36 @@ const App = () => {
     });
   }
   
-  const handleClick = async (e) => {
-    const id = e.target.id();
+  const handleClick =  (e) => {
+    const clickedRect = e.target;
+    const id = parseInt(e.target.id(), 10);
+    console.log(clickedRect);
     
     if(colorMod === 'normal') {
-      console.log(id);
-      setRectangles(
-        rectangles.map((rectangle) => {
-          if((rectangle.id) === id) {
-            return {
-              ...rectangle,
-              fill: colorArray[(rectangle.counter%colorArray.length)],
-              counter: (rectangle.counter + 1),
-            };
-            
-          } else { 
-            return { ...rectangle };
-          }
-        })
-      );
+      clickedRect.fill(colorArray[(clickedRect.attrs.counter%colorArray.length)]);
+      clickedRect.attrs.counter += 1;
+      //console.log(clickedRect);
+      
     } else if(colorMod === 'vertLine') {
+      //makes additional rectangles, ideally would effect existing one
       setRectangles(
-        rectangles.map((rectangle) => {
-          if((rectangle.id%SIZE_SQUARED) === id%SIZE_SQUARED) {
-            return {
-              ...rectangle,
-              fill: colorArray[(rectangle.counter%colorArray.length)],
-              counter: (rectangle.counter + 1),
-            };
+        rectangles.map((rectangle,index) => {
+          if((parseInt(rectangle.id(), 10)%SIZE_SQUARED) === (id%SIZE_SQUARED)) {
+            //console.log(rectangle);
+            return rectangle.clone({
+              fill: colorArray[(rectangle.attrs.counter%colorArray.length)],
+              counter: (rectangle.attrs.counter + 1)
+            });
             
-          } else { 
-            return { ...rectangle };
+          } else {
+            return rectangle;
           }
         })
       );
+      //console.log(output);
+        
+      //setRectangles(oldRectangles => output);
+      
     } else if(colorMod === 'horizonLine') {
       setRectangles(
         rectangles.map((rectangle) => {
@@ -145,23 +172,17 @@ const App = () => {
         //repeat as many times as needed
         for(let repeats = 0; repeats < timesToIterateCounter; repeats++){
           console.log('rectangle index starting for loop', rectangleIndex);
-          //find index in array, 'click it'
-          setRectangles(
-            rectangles.map((rectangle) => {
-              if((Number.parseInt(rectangle.id,10)) === rectangleIndex) {
-                return {
-                  ...rectangle,
-                  fill: colorArray[(rectangle.counter%colorArray.length)],
-                  counter: (rectangle.counter + 1),
-                };
-                
-              } else { 
-                return { ...rectangle };
-              }
-            })
-          );
           
-          await delay(100);
+          
+          //find index in array, 'click it'
+          //updateFill(rectangleIndex);
+         
+          console.log('previous: ', rectangles[rectangleIndex-1]);
+          console.log('current: ', rectangles[rectangleIndex]);
+          
+          //previous method of 'animation'
+          //await delay(200);
+          
           //move index the correct way based on what step
           switch(stepCounter%4){
             case 1:  
@@ -190,9 +211,6 @@ const App = () => {
       }
       
     }
-    
-    //console.log('rectangle clicked at index', id);
-    //console.log('rectangles', rectangles);
   };
   
   const handleTextClick = (e) => {
@@ -218,7 +236,7 @@ const App = () => {
             };
           }
           
-        } else { //clicked other one, aka turn off selected for other options
+        } else { //de-select other options on selection of other option
           text.selected = false;
           return { 
             ...text,
@@ -231,14 +249,38 @@ const App = () => {
   
   return (
     <Stage width={window.innerWidth} height={window.innerHeight}>
-      <Layer>
+      <Layer {...layer}>
+        <Rect
+          x={30}
+          y={250}
+          width={50}
+          height={50}
+          fill="green"
+          shadowBlur={5}
+          ref={(element) => {
+              rectRef.current[0] = element;
+            }}
+          onClick={onRectClick}
+        />
+        <Rect
+          x={90}
+          y={250}
+          width={50}
+          height={50}
+          fill="blue"
+          shadowBlur={5}
+          ref={(element) => {
+              rectRef.current[1] = element;
+            }}
+          onClick={onRectClick}
+          />
         <Rect
           key="toolbarBackground"
           id="toolbarBackground"
           x={0}
           y={0}
           width={window.innerWidth}
-          height={window.innerHeight/20}
+          height={window.innerHeight/20 + 10}
           fillLinearGradientStartPoint={{ x: window.innerWidth/5, y: 0 }}
           fillLinearGradientEndPoint={{ x: window.innerWidth, y: window.innerHeight/20 }}
           fillLinearGradientColorStops={[0, colorArray[0], 0.25, colorArray[1], 0.5, colorArray[2], 0.75, colorArray[3], 1, colorArray[4]]}
@@ -263,18 +305,8 @@ const App = () => {
             onClick={handleTextClick}
           />
         ))}
-        {rectangles.map((rectangle) => (
-          <Rect
-            key={rectangle.id}
-            id={rectangle.id}
-            x={rectangle.x}
-            y={rectangle.y}
-            width={rectangle.width}
-            height={rectangle.height}
-            fill={rectangle.fill}
-            shadowBlur={rectangle.shadowBlur}
-            onClick={handleClick}
-          />
+        {rectangles.map((rectangle, index) => (
+          <Rect {...rectangle} onClick={handleClick} key={rectangle.attrs.id}/>
         ))}
       </Layer>
     </Stage>
