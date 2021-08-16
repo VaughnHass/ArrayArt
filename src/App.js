@@ -5,13 +5,15 @@ import Konva from "konva";
 import { Stage, Layer, Rect, Text } from "react-konva";
 
 //change size here, dimensions are X^2
-const SIZE_SQUARED = 9; 
+const SIZE_SQUARED = 15; 
 
 const INITIAL_STATE_RECT = generateRectangles(SIZE_SQUARED);
 const INITIAL_STATE_TEXT = generateText();
 
 const colorArray = ['#8CFFDA', '#8447FF', '#D972FF', '#FFB2E6', '#FFFFE8'];
 let colorMod = 'normal';
+let lastIndexArr = [[]];
+let count = 0;
 
 function generateRectangles(sizeSquared){
   const size = sizeSquared * sizeSquared;
@@ -35,8 +37,6 @@ function generateRectangles(sizeSquared){
 function generateText(){
   return [{  
     id: 'vertLine',
-    x: 20,
-    y: 15,
     offsetX: -5,
     fontFamily: 'Courier New (monospace)',
     text: 'Vertical Line',
@@ -49,8 +49,6 @@ function generateText(){
     selected: false,
   },{  
     id: 'horizonLine',
-    x: (window.innerWidth*0.5),
-    y: 15,
     offsetX: 95,
     fontFamily: 'Courier New (monospace)',
     text: 'Horizontal Line',
@@ -63,11 +61,21 @@ function generateText(){
     selected: false,
   },{  
     id: 'spiral',
-    x: (window.innerWidth),
-    y: 15,
-    offsetX: 100,
+    offsetX: 20,
     fontFamily: 'Courier New (monospace)',
     text: 'Spiral',
+    textDecoration: '',
+    fontStyle: 'italic',
+    fontSize: 30,
+    fill: 'black',
+    align: 'center',
+    verticalAlign: 'top',
+    selected: false,
+  },{  
+    id: 'expoExpand',
+    offsetX: 150,
+    fontFamily: 'Courier New (monospace)',
+    text: 'Propagate',
     textDecoration: '',
     fontStyle: 'italic',
     fontSize: 30,
@@ -103,6 +111,7 @@ function delay(ms) {
 const App = () => {
   const rectRef = React.useRef([]);
   const [textOptions, setTextOptions] = React.useState(INITIAL_STATE_TEXT);
+  const [dragActive, setDragActive] = React.useState(false);
   const [dimensions, setDimensions] = React.useState({ 
     height: window.innerHeight,
     width: window.innerWidth,
@@ -125,12 +134,11 @@ const App = () => {
   
   //const stage = new Konva.Stage
   const layer = new Konva.Layer();
-  //INITIAL_STATE_RECT.map(rectangle => (layer.add(rectangle)));
   
   const normalDraw = (clickedIndex, clickedRect) => {
     clickedRect.fill(colorArray[(clickedRect.attrs.counter%colorArray.length)]);
     clickedRect.attrs.counter += 1;
-    console.log(clickedIndex);
+    //console.log(clickedIndex);
   };
   
   const vertLineDraw = (clickedIndex, clickedRect) => {
@@ -210,9 +218,80 @@ const App = () => {
     }
   };
   
-  const exponentialExpandDraw = (clickedIndex, clickedRect) => {
+  const exponentialExpandDraw = async (index, clickedRect, lastIndex, currentCount) => {
+    //console.log(SIZE_SQUARED**2);
+    const outMax = SIZE_SQUARED**2;
+    const outMin = -1;
+    let upLeft = parseInt(index + SIZE_SQUARED + 1, 10);
+    let upRight = parseInt(index + SIZE_SQUARED - 1, 10);
+    let downLeft = parseInt(index - SIZE_SQUARED + 1, 10);
+    let downRight = parseInt(index - SIZE_SQUARED - 1, 10);
+    let leftEdgeCheck = ((index + 1) % SIZE_SQUARED !== 0);
+    let rightEdgeCheck = (index % SIZE_SQUARED !== 0);
     
-  }
+    
+     if(!lastIndex || lastIndex[currentCount] === undefined || lastIndex[currentCount] === null){
+      //first click draw
+      normalDraw(index, clickedRect);
+      lastIndexArr[currentCount] = [];
+      lastIndexArr[currentCount].push(index);
+    }else {
+      if(lastIndexArr[currentCount]){
+        lastIndexArr[currentCount].push(index);
+      }else{
+        lastIndexArr[currentCount] = [];
+        lastIndexArr[currentCount].push(index);
+      }
+    }
+    await delay((20));
+    
+    //direction checking then recursive calls including new lastIndex
+    if(upLeft < outMax){ //up-left
+      //limit going from left side to right side
+      if(leftEdgeCheck && !lastIndexArr[currentCount].includes(upLeft)){
+        lastIndexArr[currentCount].push(upLeft);
+        normalDraw(upLeft, rectRef.current[upLeft]);
+        await delay((20));
+        exponentialExpandDraw(upLeft, rectRef.current[upLeft], lastIndexArr, currentCount);
+      }
+    }
+    if(upRight < outMax){ //up-right
+      //limit going from right side to left side
+      if(rightEdgeCheck && !lastIndexArr[currentCount].includes(upRight)){
+        lastIndexArr[currentCount].push(upRight);
+        normalDraw(upRight, rectRef.current[upRight]);
+        await delay((20));
+        exponentialExpandDraw(upRight, rectRef.current[upRight], lastIndexArr, currentCount);
+      }
+    }
+    if(downLeft > outMin){ //down-left
+      //limit going from left side to right side
+      if(leftEdgeCheck && !lastIndexArr[currentCount].includes(downLeft)){
+        lastIndexArr[currentCount].push(downLeft);
+        normalDraw(downLeft, rectRef.current[downLeft]);
+        await delay((20));
+        exponentialExpandDraw(downLeft, rectRef.current[downLeft], lastIndexArr, currentCount);
+      }
+    }
+    if(downRight > outMin){ //down-right
+      //limit going from right side to left side
+      if(rightEdgeCheck && !lastIndexArr[currentCount].includes(downRight)){
+        lastIndexArr[currentCount].push(downRight);
+        normalDraw(downRight, rectRef.current[downRight]);
+        await delay((20));
+        exponentialExpandDraw(downRight, rectRef.current[downRight], lastIndexArr, currentCount);
+      }
+    }
+    
+    return;
+  };
+  
+  const onRectDrag = (e) => {
+    if(dragActive){
+      count+=1;
+      onRectClick(e);
+    }
+  };
   
   const onRectClick = (e) => {
     const clickedIndex = e.target.index;
@@ -220,16 +299,24 @@ const App = () => {
     
     switch(colorMod){
       case 'normal':
+        count+=1;
         normalDraw(clickedIndex, clickedRect);
         break;
       case 'vertLine':
+        count+=1;
         vertLineDraw(clickedIndex, clickedRect);
         break;
       case 'horizonLine':
+        count+=1;
         horizontalLineDraw(clickedIndex, clickedRect);
         break;
       case 'spiral':
+        count+=1;
         spiralLineDraw(clickedIndex, clickedRect);
+        break;
+      case 'expoExpand':
+        count+=1;
+        exponentialExpandDraw(clickedIndex, clickedRect, lastIndexArr, count+1);
         break;
       default: break;
     }
@@ -283,7 +370,12 @@ const App = () => {
             ref={(element) => {
               rectRef.current[index] = element;
             }}
-            onClick={onRectClick}
+            onMouseDown={(e) => {
+              setDragActive(true);
+              return (onRectClick(e));
+            }}
+            onMouseUp={() => setDragActive(false)}
+            onMouseOver={onRectDrag}
           />
         ))}
         <Rect
@@ -311,8 +403,6 @@ const App = () => {
             textDecoration={text.textDecoration}
             fontStyle={text.fontStyle}
             fill={text.fill}
-            align={text.align}
-            verticalAlign={text.verticalAlign}
             fontSize={text.fontSize}
             onClick={handleTextClick}
           />
