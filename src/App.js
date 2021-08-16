@@ -90,24 +90,19 @@ function generateText(){
   2) in the handleClick method, directly access each instances setState to change color
 */
 const App = () => {
-  const [rectangles, setRectangles] = React.useState(INITIAL_STATE_RECT);
+  //const [rectangles, setRectangles] = React.useState();
   const [textOptions, setTextOptions] = React.useState(INITIAL_STATE_TEXT);
   
   const rectRef = React.useRef([]);
   
-  const onRectClick = (e) => {
-    rectRef.current[e.target.index].fill(Konva.Util.getRandomColor());
-    console.log(rectRef.current[e.target.index]);
-  };
-  
   
   //TODO: figure out bug switching between vert & single rect click
   const layer = new Konva.Layer();
-  layer.brightness(-1);
-  rectangles.map(rectangle => {
-    layer.add(rectangle);
+  /*
+  INITIAL_STATE_RECT.map(rectangle => {
+    return layer.add(rectangle);
   });
-  console.log(layer);
+  */
   
   function delay(ms) {
     return new Promise((resolve) => {
@@ -115,97 +110,86 @@ const App = () => {
     });
   }
   
-  const handleClick =  (e) => {
-    const clickedRect = e.target;
-    const id = parseInt(e.target.id(), 10);
-    console.log(clickedRect);
+  const onRectClick = async (e) => {
+    const clickedIndex = e.target.index;
+    const clickedRect = rectRef.current[e.target.index];
+    //console.log(clickedRect);
     
     if(colorMod === 'normal') {
       clickedRect.fill(colorArray[(clickedRect.attrs.counter%colorArray.length)]);
       clickedRect.attrs.counter += 1;
-      //console.log(clickedRect);
+      console.log(clickedIndex);
       
     } else if(colorMod === 'vertLine') {
-      //makes additional rectangles, ideally would effect existing one
-      setRectangles(
-        rectangles.map((rectangle,index) => {
-          if((parseInt(rectangle.id(), 10)%SIZE_SQUARED) === (id%SIZE_SQUARED)) {
-            //console.log(rectangle);
-            return rectangle.clone({
-              fill: colorArray[(rectangle.attrs.counter%colorArray.length)],
-              counter: (rectangle.attrs.counter + 1)
-            });
-            
-          } else {
-            return rectangle;
-          }
-        })
-      );
-      //console.log(output);
-        
-      //setRectangles(oldRectangles => output);
+      rectRef.current.forEach((rectangle,index) => {
+        if((index+1)%SIZE_SQUARED === (clickedIndex+1)%SIZE_SQUARED) {
+          rectangle.fill(colorArray[(rectangle.attrs.counter%colorArray.length)]);
+          rectangle.attrs.counter += 1;
+        }
+      });
       
     } else if(colorMod === 'horizonLine') {
-      setRectangles(
-        rectangles.map((rectangle) => {
-          if(Math.floor(rectangle.id/SIZE_SQUARED) === Math.floor(id/SIZE_SQUARED)) {
-            return {
-              ...rectangle,
-              fill: colorArray[(rectangle.counter%colorArray.length)],
-              counter: (rectangle.counter + 1),
-            };
-            
-          } else { 
-            return { ...rectangle };
-          }
-        })
-      );
+      rectRef.current.forEach((rectangle,index) => {
+        if(Math.floor((index)/SIZE_SQUARED) === Math.floor((clickedIndex)/SIZE_SQUARED)) {
+          rectangle.fill(colorArray[(rectangle.attrs.counter%colorArray.length)]);
+          rectangle.attrs.counter += 1;
+        }
+      });
+     
     } else if(colorMod === 'spiral') {
-      console.log(id);
-      let rectangleIndex = Number.parseInt(id,10);
+      let rectangleIndex = clickedIndex;
       let stepCounter = 1;
       let timesToIterateCounter = 1;
+      let inBounds = true;
         
       //stop when out of index, dont have to worry about out of bounds
-      while(rectangleIndex >= 0 && rectangleIndex < rectangles.length){ 
+      while(rectangleIndex >= 0 && rectangleIndex < rectRef.current.length && inBounds){ 
         
         //repeat as many times as needed
-        for(let repeats = 0; repeats < timesToIterateCounter; repeats++){
-          console.log('rectangle index starting for loop', rectangleIndex);
-          
-          
+        for(let repeats = 0; repeats < timesToIterateCounter && inBounds; repeats++){
+
           //find index in array, 'click it'
-          //updateFill(rectangleIndex);
-         
-          console.log('previous: ', rectangles[rectangleIndex-1]);
-          console.log('current: ', rectangles[rectangleIndex]);
+          let currentRect = rectRef.current[rectangleIndex];
+          currentRect.fill(colorArray[(currentRect.attrs.counter%colorArray.length)]);
+          currentRect.attrs.counter += 1;
           
           //previous method of 'animation'
-          //await delay(200);
+          await delay(100);
           
           //move index the correct way based on what step
           switch(stepCounter%4){
             case 1:  
-              rectangleIndex = rectangleIndex + SIZE_SQUARED; //up
+              //stop out of bounds up or move up
+              rectangleIndex < 25 && rectangleIndex >= 20 
+              ? inBounds = false
+              : rectangleIndex = rectangleIndex + SIZE_SQUARED;
               break;
             case 2:  
-              rectangleIndex = rectangleIndex - 1; //right
+              //stop out of bounds right or move right
+              (rectangleIndex)%5 === 0 
+              ? inBounds = false 
+              : rectangleIndex = rectangleIndex - 1;
               break;
             case 3:  
-              rectangleIndex = rectangleIndex - SIZE_SQUARED; //down
+              //stop out of bounds up or move up
+              rectangleIndex < 5 && rectangleIndex >= 0  
+              ? inBounds = false
+              : rectangleIndex = rectangleIndex - SIZE_SQUARED;
               break;
-            default: 
-              rectangleIndex = rectangleIndex + 1; //left
+            default:
+              //stop out of bounds left or move left
+              (rectangleIndex+1)%5 === 0 
+              ? inBounds = false 
+              : rectangleIndex = rectangleIndex + 1;
               break;
           }
         }
-        //console.log('rectangle index after switch', rectangleIndex);
         
         //count the step
         stepCounter+=1;
         
         //every 2 steps, add 1 repeat to cycle done
-        if(stepCounter/2 > timesToIterateCounter){
+        if(stepCounter/2 > timesToIterateCounter && inBounds){
           timesToIterateCounter += 1;
         }
       }
@@ -250,30 +234,16 @@ const App = () => {
   return (
     <Stage width={window.innerWidth} height={window.innerHeight}>
       <Layer {...layer}>
-        <Rect
-          x={30}
-          y={250}
-          width={50}
-          height={50}
-          fill="green"
-          shadowBlur={5}
-          ref={(element) => {
-              rectRef.current[0] = element;
+        {INITIAL_STATE_RECT.map((rectangle, index) => (
+          <Rect {...rectangle}
+            key={index}
+            index={index}
+            ref={(element) => {
+              rectRef.current[index] = element;
             }}
-          onClick={onRectClick}
-        />
-        <Rect
-          x={90}
-          y={250}
-          width={50}
-          height={50}
-          fill="blue"
-          shadowBlur={5}
-          ref={(element) => {
-              rectRef.current[1] = element;
-            }}
-          onClick={onRectClick}
+            onClick={onRectClick}
           />
+        ))}
         <Rect
           key="toolbarBackground"
           id="toolbarBackground"
@@ -304,9 +274,6 @@ const App = () => {
             fontSize={text.fontSize}
             onClick={handleTextClick}
           />
-        ))}
-        {rectangles.map((rectangle, index) => (
-          <Rect {...rectangle} onClick={handleClick} key={rectangle.attrs.id}/>
         ))}
       </Layer>
     </Stage>
