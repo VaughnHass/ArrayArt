@@ -5,7 +5,7 @@ import Konva from "konva";
 import { Stage, Layer, Rect, Text } from "react-konva";
 
 //change size here, dimensions are X^2
-const SIZE_SQUARED = 5; 
+const SIZE_SQUARED = 9; 
 
 const INITIAL_STATE_RECT = generateRectangles(SIZE_SQUARED);
 const INITIAL_STATE_TEXT = generateText();
@@ -18,8 +18,6 @@ function generateRectangles(sizeSquared){
   
   const data = [...Array(size)].map((_, i) => ({  
     id: i.toString(),
-    x: ((window.innerWidth/2 - (i%sizeSquared) * 55) + (sizeSquared * 25 / 1.35)),
-    y: (window.innerHeight/2 - ((Math.floor(i/sizeSquared)) * 55) + (sizeSquared * 25 / 1.2)),
     width: 50,
     height: 50,
     fill: '#FFFFE8',
@@ -34,16 +32,12 @@ function generateRectangles(sizeSquared){
   return rectObjArr;
 }
 
-//TODO
-//1) for all options besides first & last:
-//  x: window.innerWidth/(options.length - 1)
-//  then figure out X offset value calculation
 function generateText(){
   return [{  
     id: 'vertLine',
-    x: (20),
+    x: 20,
     y: 15,
-    offsetX: 0,
+    offsetX: -5,
     fontFamily: 'Courier New (monospace)',
     text: 'Vertical Line',
     textDecoration: '',
@@ -57,7 +51,7 @@ function generateText(){
     id: 'horizonLine',
     x: (window.innerWidth*0.5),
     y: 15,
-    offsetX: 100,
+    offsetX: 95,
     fontFamily: 'Courier New (monospace)',
     text: 'Horizontal Line',
     textDecoration: '',
@@ -84,116 +78,160 @@ function generateText(){
   }];
 }
 
+function debounce(fn, ms) {
+  let timer;
+  return _ => {
+    clearTimeout(timer);
+    timer = setTimeout(_ => {
+      timer = null;
+      fn.apply(this, arguments);
+    }, ms);
+  };
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 /*new plan:
   1) actually initalize all of the react-konva shapes/nodes here & assign them to an array.
     (instead of initalizing them in the render method)
   2) in the handleClick method, directly access each instances setState to change color
 */
 const App = () => {
-  //const [rectangles, setRectangles] = React.useState();
-  const [textOptions, setTextOptions] = React.useState(INITIAL_STATE_TEXT);
-  
   const rectRef = React.useRef([]);
-  
-  
-  //TODO: figure out bug switching between vert & single rect click
-  const layer = new Konva.Layer();
-  /*
-  INITIAL_STATE_RECT.map(rectangle => {
-    return layer.add(rectangle);
+  const [textOptions, setTextOptions] = React.useState(INITIAL_STATE_TEXT);
+  const [dimensions, setDimensions] = React.useState({ 
+    height: window.innerHeight,
+    width: window.innerWidth,
   });
-  */
   
-  function delay(ms) {
-    return new Promise((resolve) => {
-      setTimeout(resolve, ms);
+  React.useEffect(() => {
+    const debouncedHandleResize = debounce(function handleResize() {
+      setDimensions({
+        height: window.innerHeight,
+        width: window.innerWidth
+      });
+    }, 250);
+    //listen for resize
+    window.addEventListener('resize', debouncedHandleResize);
+    //dont exponentially add more eventListeners
+    return _ => {
+      window.removeEventListener('resize', debouncedHandleResize);
+    };
+  });
+  
+  //const stage = new Konva.Stage
+  const layer = new Konva.Layer();
+  //INITIAL_STATE_RECT.map(rectangle => (layer.add(rectangle)));
+  
+  const normalDraw = (clickedIndex, clickedRect) => {
+    clickedRect.fill(colorArray[(clickedRect.attrs.counter%colorArray.length)]);
+    clickedRect.attrs.counter += 1;
+    console.log(clickedIndex);
+  };
+  
+  const vertLineDraw = (clickedIndex, clickedRect) => {
+    rectRef.current.forEach((rectangle,index) => {
+      if((index+1)%SIZE_SQUARED === (clickedIndex+1)%SIZE_SQUARED) {
+        rectangle.fill(colorArray[(rectangle.attrs.counter%colorArray.length)]);
+        rectangle.attrs.counter += 1;
+      }
     });
-  }
+  };
   
-  const onRectClick = async (e) => {
-    const clickedIndex = e.target.index;
-    const clickedRect = rectRef.current[e.target.index];
-    //console.log(clickedRect);
-    
-    if(colorMod === 'normal') {
-      clickedRect.fill(colorArray[(clickedRect.attrs.counter%colorArray.length)]);
-      clickedRect.attrs.counter += 1;
-      console.log(clickedIndex);
+  const horizontalLineDraw = (clickedIndex, clickedRect) => {
+    rectRef.current.forEach((rectangle,index) => {
+      if(Math.floor((index)/SIZE_SQUARED) === Math.floor((clickedIndex)/SIZE_SQUARED)) {
+        rectangle.fill(colorArray[(rectangle.attrs.counter%colorArray.length)]);
+        rectangle.attrs.counter += 1;
+      }
+    });
+  };
+  
+  const spiralLineDraw = async (clickedIndex, clickedRect) => {
+    let rectangleIndex = clickedIndex;
+    let stepCounter = 1;
+    let timesToIterateCounter = 1;
+    let inBounds = true;
       
-    } else if(colorMod === 'vertLine') {
-      rectRef.current.forEach((rectangle,index) => {
-        if((index+1)%SIZE_SQUARED === (clickedIndex+1)%SIZE_SQUARED) {
-          rectangle.fill(colorArray[(rectangle.attrs.counter%colorArray.length)]);
-          rectangle.attrs.counter += 1;
-        }
-      });
+    //stop when out of index, dont have to worry about out of bounds
+    while(rectangleIndex >= 0 && rectangleIndex < rectRef.current.length && inBounds){ 
       
-    } else if(colorMod === 'horizonLine') {
-      rectRef.current.forEach((rectangle,index) => {
-        if(Math.floor((index)/SIZE_SQUARED) === Math.floor((clickedIndex)/SIZE_SQUARED)) {
-          rectangle.fill(colorArray[(rectangle.attrs.counter%colorArray.length)]);
-          rectangle.attrs.counter += 1;
-        }
-      });
-     
-    } else if(colorMod === 'spiral') {
-      let rectangleIndex = clickedIndex;
-      let stepCounter = 1;
-      let timesToIterateCounter = 1;
-      let inBounds = true;
-        
-      //stop when out of index, dont have to worry about out of bounds
-      while(rectangleIndex >= 0 && rectangleIndex < rectRef.current.length && inBounds){ 
-        
-        //repeat as many times as needed
-        for(let repeats = 0; repeats < timesToIterateCounter && inBounds; repeats++){
+      //repeat as many times as needed
+      for(let repeats = 0; repeats < timesToIterateCounter && inBounds; repeats++){
 
-          //find index in array, 'click it'
-          let currentRect = rectRef.current[rectangleIndex];
-          currentRect.fill(colorArray[(currentRect.attrs.counter%colorArray.length)]);
-          currentRect.attrs.counter += 1;
-          
-          //previous method of 'animation'
-          await delay(100);
-          
-          //move index the correct way based on what step
-          switch(stepCounter%4){
-            case 1:  
-              //stop out of bounds up or move up
-              rectangleIndex < 25 && rectangleIndex >= 20 
-              ? inBounds = false
-              : rectangleIndex = rectangleIndex + SIZE_SQUARED;
-              break;
-            case 2:  
-              //stop out of bounds right or move right
-              (rectangleIndex)%5 === 0 
-              ? inBounds = false 
-              : rectangleIndex = rectangleIndex - 1;
-              break;
-            case 3:  
-              //stop out of bounds up or move up
-              rectangleIndex < 5 && rectangleIndex >= 0  
-              ? inBounds = false
-              : rectangleIndex = rectangleIndex - SIZE_SQUARED;
-              break;
-            default:
-              //stop out of bounds left or move left
-              (rectangleIndex+1)%5 === 0 
-              ? inBounds = false 
-              : rectangleIndex = rectangleIndex + 1;
-              break;
-          }
-        }
+        //find index in array, 'click it'
+        let currentRect = rectRef.current[rectangleIndex];
+        currentRect.fill(colorArray[(currentRect.attrs.counter%colorArray.length)]);
+        currentRect.attrs.counter += 1;
         
-        //count the step
-        stepCounter+=1;
+        //previous method of 'animation'
+        await delay(100);
         
-        //every 2 steps, add 1 repeat to cycle done
-        if(stepCounter/2 > timesToIterateCounter && inBounds){
-          timesToIterateCounter += 1;
+        //move index the correct way based on what step
+        switch(stepCounter%4){
+          case 1:  
+            //stop out of bounds up or move up
+            rectangleIndex < SIZE_SQUARED**2 && rectangleIndex >= SIZE_SQUARED**2-SIZE_SQUARED 
+            ? inBounds = false
+            : rectangleIndex = rectangleIndex + SIZE_SQUARED;
+            break;
+          case 2:  
+            //stop out of bounds right or move right
+            (rectangleIndex)%SIZE_SQUARED === 0 
+            ? inBounds = false 
+            : rectangleIndex = rectangleIndex - 1;
+            break;
+          case 3:  
+            //stop out of bounds up or move up
+            rectangleIndex < SIZE_SQUARED && rectangleIndex >= 0  
+            ? inBounds = false
+            : rectangleIndex = rectangleIndex - SIZE_SQUARED;
+            break;
+          default:
+            //stop out of bounds left or move left
+            (rectangleIndex+1)%SIZE_SQUARED === 0 
+            ? inBounds = false 
+            : rectangleIndex = rectangleIndex + 1;
+            break;
         }
       }
       
+      //count the step
+      stepCounter+=1;
+      
+      //every 2 steps, add 1 repeat to cycle done
+      if(stepCounter/2 > timesToIterateCounter && inBounds){
+        timesToIterateCounter += 1;
+      }
+    }
+  };
+  
+  const exponentialExpandDraw = (clickedIndex, clickedRect) => {
+    
+  }
+  
+  const onRectClick = (e) => {
+    const clickedIndex = e.target.index;
+    const clickedRect = rectRef.current[e.target.index];
+    
+    switch(colorMod){
+      case 'normal':
+        normalDraw(clickedIndex, clickedRect);
+        break;
+      case 'vertLine':
+        vertLineDraw(clickedIndex, clickedRect);
+        break;
+      case 'horizonLine':
+        horizontalLineDraw(clickedIndex, clickedRect);
+        break;
+      case 'spiral':
+        spiralLineDraw(clickedIndex, clickedRect);
+        break;
+      default: break;
     }
   };
   
@@ -232,10 +270,14 @@ const App = () => {
   };
   
   return (
-    <Stage width={window.innerWidth} height={window.innerHeight}>
+    <div>
+    <div>Rendered at {dimensions.width} x {dimensions.height}</div>
+    <Stage width={dimensions.width} height={dimensions.height}>
       <Layer {...layer}>
         {INITIAL_STATE_RECT.map((rectangle, index) => (
           <Rect {...rectangle}
+            x={((dimensions.width/2 - 55 - (index%SIZE_SQUARED) * 55) + (55 * SIZE_SQUARED / 2) )}
+            y={(dimensions.height/2 - ((Math.floor(index/SIZE_SQUARED)) * 55) + (SIZE_SQUARED * 25))}
             key={index}
             index={index}
             ref={(element) => {
@@ -249,18 +291,18 @@ const App = () => {
           id="toolbarBackground"
           x={0}
           y={0}
-          width={window.innerWidth}
-          height={window.innerHeight/20 + 10}
+          width={dimensions.width}
+          height={dimensions.height/20 + 10}
           fillLinearGradientStartPoint={{ x: window.innerWidth/5, y: 0 }}
           fillLinearGradientEndPoint={{ x: window.innerWidth, y: window.innerHeight/20 }}
           fillLinearGradientColorStops={[0, colorArray[0], 0.25, colorArray[1], 0.5, colorArray[2], 0.75, colorArray[3], 1, colorArray[4]]}
           shadowBlur={10}
           stroke="#5E6572"
         />
-        {textOptions.map((text) => (
+        {textOptions.map((text,index) => (
           <Text 
-            x={text.x}
-            y={text.y}
+            x={dimensions.width*(index/(textOptions.length-1))}
+            y={20}
             offsetX={text.offsetX}
             key={text.id}
             id={text.id}
@@ -277,6 +319,7 @@ const App = () => {
         ))}
       </Layer>
     </Stage>
+    </div>
   );
 };
 
