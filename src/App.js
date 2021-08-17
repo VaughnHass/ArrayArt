@@ -5,7 +5,7 @@ import Konva from "konva";
 import { Stage, Layer, Rect, Text } from "react-konva";
 
 //change size here, dimensions are X^2
-const SIZE_SQUARED = 15; 
+const SIZE_SQUARED = 20; 
 
 const INITIAL_STATE_RECT = generateRectangles(SIZE_SQUARED);
 const INITIAL_STATE_TEXT = generateText();
@@ -138,7 +138,6 @@ const App = () => {
   const normalDraw = (clickedIndex, clickedRect) => {
     clickedRect.fill(colorArray[(clickedRect.attrs.counter%colorArray.length)]);
     clickedRect.attrs.counter += 1;
-    //console.log(clickedIndex);
   };
   
   const vertLineDraw = (clickedIndex, clickedRect) => {
