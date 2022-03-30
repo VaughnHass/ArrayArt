@@ -20,8 +20,8 @@ function generateRectangles(sizeSquared){
   
   const data = [...Array(size)].map((_, i) => ({  
     id: i.toString(),
-    width: 50,
-    height: 50,
+    width: 25,
+    height: 25,
     fill: '#FFFFE8',
     shadowBlur: 5,
     counter: 0,
@@ -176,7 +176,7 @@ const App = () => {
         currentRect.attrs.counter += 1;
         
         //previous method of 'animation'
-        await delay(100);
+        await delay(25);
         
         //move index the correct way based on what step
         switch(stepCounter%4){
@@ -362,8 +362,8 @@ const App = () => {
       <Layer {...layer}>
         {INITIAL_STATE_RECT.map((rectangle, index) => (
           <Rect {...rectangle}
-            x={((dimensions.width/2 - 55 - (index%SIZE_SQUARED) * 55) + (55 * SIZE_SQUARED / 2) )}
-            y={(dimensions.height/2 - ((Math.floor(index/SIZE_SQUARED)) * 55) + (SIZE_SQUARED * 25))}
+            x={((dimensions.width/2 - (55/2) - (index%SIZE_SQUARED) * (55/2)) + ((55/2) * SIZE_SQUARED / 2) )}
+            y={(dimensions.height/2 - ((Math.floor(index/SIZE_SQUARED)) * (55/2)) + (SIZE_SQUARED * (25/2)))}
             key={index}
             index={index}
             ref={(element) => {
